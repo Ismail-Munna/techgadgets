@@ -6,13 +6,55 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Trash2, Eye, Loader2 } from "lucide-react";
-import { Product } from "@/lib/data";
+import type { Product } from "@/lib/data";
+
+type ProductRow = Omit<
+  Product,
+  "title" | "imageUrl" | "shortDescription" | "price" | "priority" | "dateAdded"
+> & {
+  title?: string | null;
+  name?: string | null;
+  imageUrl?: string | null;
+  shortDescription?: string | null;
+  price?: number | null;
+  priority?: string | null;
+  dateAdded?: string | null;
+};
+
+const FALLBACK_IMAGE_URL = "https://picsum.photos/seed/product-fallback/600/400";
+const NEXT_IMAGE_HOSTS = new Set(["picsum.photos"]);
+
+function getProductName(product: ProductRow) {
+  return product.title?.trim() || product.name?.trim() || "Untitled product";
+}
+
+function getProductImage(product: ProductRow) {
+  if (typeof product.imageUrl === "string" && product.imageUrl.trim()) {
+    return product.imageUrl.trim();
+  }
+
+  return FALLBACK_IMAGE_URL;
+}
+
+function canUseNextImage(src: string) {
+  if (src.startsWith("/")) {
+    return true;
+  }
+
+  try {
+    const url = new URL(src);
+    return url.protocol === "https:" && NEXT_IMAGE_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 export default function ProductTable() {
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -94,62 +136,104 @@ export default function ProductTable() {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 bg-white">
-          {products.map((product) => (
-            <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-              <td className="whitespace-nowrap py-4 pl-4 pr-3 sm:pl-6">
-                <div className="flex items-center">
-                  <div className="h-10 w-10 flex-shrink-0 relative rounded-md overflow-hidden bg-gray-100">
-                    <Image
-                      src={product.imageUrl}
-                      alt={product.title}
-                      fill
-                      className="object-cover"
-                      referrerPolicy="no-referrer"
-                      sizes="40px"
-                    />
+          {products.map((product) => {
+            const productName = getProductName(product);
+            const imageSrc = brokenImages[product.id]
+              ? FALLBACK_IMAGE_URL
+              : getProductImage(product);
+            const useNextImage = canUseNextImage(imageSrc);
+            const priceLabel =
+              typeof product.price === "number" ? `$${product.price.toFixed(2)}` : "N/A";
+            const priorityLabel = product.priority || "Unspecified";
+            const priorityClasses =
+              priorityLabel === "High"
+                ? "bg-red-100 text-red-800"
+                : priorityLabel === "Medium"
+                  ? "bg-yellow-100 text-yellow-800"
+                  : priorityLabel === "Low"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-100 text-gray-700";
+            const dateLabel = product.dateAdded
+              ? new Date(product.dateAdded).toLocaleDateString()
+              : "N/A";
+
+            return (
+              <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                <td className="whitespace-nowrap py-4 pl-4 pr-3 sm:pl-6">
+                  <div className="flex items-center">
+                    <div className="h-10 w-10 flex-shrink-0 relative rounded-md overflow-hidden bg-gray-100">
+                      {useNextImage ? (
+                        <Image
+                          src={imageSrc}
+                          alt={productName}
+                          fill
+                          className="object-cover"
+                          referrerPolicy="no-referrer"
+                          sizes="40px"
+                          onError={() =>
+                            setBrokenImages((current) => ({
+                              ...current,
+                              [product.id]: true,
+                            }))
+                          }
+                        />
+                      ) : (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={imageSrc}
+                          alt={productName}
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.src = FALLBACK_IMAGE_URL;
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className="ml-4">
+                      <div className="font-medium text-gray-900 truncate max-w-[200px] sm:max-w-xs">
+                        {productName}
+                      </div>
+                      <div className="text-gray-500 text-sm truncate max-w-[200px] sm:max-w-xs">
+                        {product.shortDescription || "No description available"}
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <div className="font-medium text-gray-900 truncate max-w-[200px] sm:max-w-xs">{product.title}</div>
-                    <div className="text-gray-500 text-sm truncate max-w-[200px] sm:max-w-xs">{product.shortDescription}</div>
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                  {priceLabel}
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                  <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${priorityClasses}`}>
+                    {priorityLabel}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                  {dateLabel}
+                </td>
+                <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                  <div className="flex items-center justify-end gap-3">
+                    <Link href={`/products/${product.id}`} className="text-indigo-600 hover:text-indigo-900 flex items-center">
+                      <Eye className="h-4 w-4 mr-1" /> View
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(product.id)}
+                      disabled={deletingId === product.id}
+                      className="text-red-600 hover:text-red-900 flex items-center disabled:opacity-50"
+                    >
+                      {deletingId === product.id ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-1" />
+                      )}
+                      Delete
+                    </button>
                   </div>
-                </div>
-              </td>
-              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                ${product.price.toFixed(2)}
-              </td>
-              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                  product.priority === 'High' ? 'bg-red-100 text-red-800' :
-                  product.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-green-100 text-green-800'
-                }`}>
-                  {product.priority}
-                </span>
-              </td>
-              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                {new Date(product.dateAdded).toLocaleDateString()}
-              </td>
-              <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                <div className="flex items-center justify-end gap-3">
-                  <Link href={`/products/${product.id}`} className="text-indigo-600 hover:text-indigo-900 flex items-center">
-                    <Eye className="h-4 w-4 mr-1" /> View
-                  </Link>
-                  <button
-                    onClick={() => handleDelete(product.id)}
-                    disabled={deletingId === product.id}
-                    className="text-red-600 hover:text-red-900 flex items-center disabled:opacity-50"
-                  >
-                    {deletingId === product.id ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4 mr-1" />
-                    )}
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
