@@ -3,13 +3,35 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ShoppingCart, Star, ShieldCheck, Truck, RotateCcw } from "lucide-react";
-import { getProductById } from "@/lib/data";
+import { getProductById as getLocalProductById } from "@/lib/data";
+import {
+  FALLBACK_PRODUCT_IMAGE_URL,
+  getProductFromStore,
+} from "@/lib/product-store";
 
 export const dynamic = 'force-dynamic';
+const NEXT_IMAGE_HOSTS = new Set(["picsum.photos"]);
+
+async function getProduct(id: string) {
+  return (await getProductFromStore(id)) ?? getLocalProductById(id);
+}
+
+function canUseNextImage(src: string) {
+  if (src.startsWith("/")) {
+    return true;
+  }
+
+  try {
+    const url = new URL(src);
+    return url.protocol === "https:" && NEXT_IMAGE_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await getProduct(id);
 
   if (!product) {
     return {
@@ -25,11 +47,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ProductDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await getProduct(id);
 
   if (!product) {
     notFound();
   }
+
+  const imageSrc = product.imageUrl || FALLBACK_PRODUCT_IMAGE_URL;
+  const useNextImage = canUseNextImage(imageSrc);
 
   return (
     <div className="bg-white min-h-screen py-12">
@@ -44,15 +69,26 @@ export default async function ProductDetailsPage({ params }: { params: Promise<{
           {/* Product Image */}
           <div className="lg:max-w-lg lg:self-end">
             <div className="aspect-square rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-gray-50 relative">
-              <Image
-                src={product.imageUrl}
-                alt={product.title}
-                fill
-                className="object-cover object-center"
-                referrerPolicy="no-referrer"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                priority
-              />
+              {useNextImage ? (
+                <Image
+                  src={imageSrc}
+                  alt={product.title}
+                  fill
+                  className="object-cover object-center"
+                  referrerPolicy="no-referrer"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  priority
+                />
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={imageSrc}
+                  alt={product.title}
+                  className="h-full w-full object-cover object-center"
+                  referrerPolicy="no-referrer"
+                  loading="eager"
+                />
+              )}
             </div>
           </div>
 

@@ -1,39 +1,38 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Eye, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { Trash2, Eye, Loader2 } from "lucide-react";
-import type { Product } from "@/lib/data";
+import {
+  FALLBACK_PRODUCT_IMAGE_URL,
+  type ProductRecord,
+} from "@/lib/product-store";
 
-type ProductRow = Omit<
-  Product,
-  "title" | "imageUrl" | "shortDescription" | "price" | "priority" | "dateAdded"
-> & {
-  title?: string | null;
-  name?: string | null;
-  imageUrl?: string | null;
-  shortDescription?: string | null;
-  price?: number | null;
-  priority?: string | null;
-  dateAdded?: string | null;
+const NEXT_IMAGE_HOSTS = new Set(["picsum.photos"]);
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+const PRIORITY_STYLES: Record<string, string> = {
+  Low: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  Medium: "bg-amber-50 text-amber-700 ring-amber-200",
+  High: "bg-rose-50 text-rose-700 ring-rose-200",
 };
 
-const FALLBACK_IMAGE_URL = "https://picsum.photos/seed/product-fallback/600/400";
-const NEXT_IMAGE_HOSTS = new Set(["picsum.photos"]);
-
-function getProductName(product: ProductRow) {
+function getProductName(product: ProductRecord) {
   return product.title?.trim() || product.name?.trim() || "Untitled product";
 }
 
-function getProductImage(product: ProductRow) {
-  if (typeof product.imageUrl === "string" && product.imageUrl.trim()) {
-    return product.imageUrl.trim();
-  }
-
-  return FALLBACK_IMAGE_URL;
+function getProductImage(product: ProductRecord) {
+  return product.imageUrl?.trim() || FALLBACK_PRODUCT_IMAGE_URL;
 }
 
 function canUseNextImage(src: string) {
@@ -49,47 +48,99 @@ function canUseNextImage(src: string) {
   }
 }
 
+function ProductTableSkeleton() {
+  return (
+    <div className="p-4 sm:p-6">
+      <div className="overflow-x-auto">
+        <div className="min-w-[760px] overflow-hidden rounded-2xl border border-slate-200">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-[minmax(260px,2.5fr)_1fr_1fr_1fr_1fr] items-center gap-4 border-b border-slate-200 px-4 py-4 last:border-b-0"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 animate-pulse rounded-xl bg-slate-200" />
+                <div className="space-y-2">
+                  <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                  <div className="h-3 w-56 animate-pulse rounded bg-slate-100" />
+                </div>
+              </div>
+              <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+              <div className="h-6 w-16 animate-pulse rounded-full bg-slate-100" />
+              <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+              <div className="ml-auto h-4 w-24 animate-pulse rounded bg-slate-200" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductTable() {
   const router = useRouter();
-  const [products, setProducts] = useState<ProductRow[]>([]);
+  const [products, setProducts] = useState<ProductRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+  const [productToDelete, setProductToDelete] = useState<ProductRecord | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchProducts = async () => {
       try {
-        const res = await fetch("/api/products");
-        if (res.ok) {
-          const data = await res.json();
-          setProducts(data);
+        const response = await fetch("/api/products", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to load products");
+        }
+
+        const data = await response.json();
+
+        if (isMounted) {
+          setProducts(Array.isArray(data) ? data : []);
         }
       } catch (error) {
         toast.error("Failed to load products");
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchProducts();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
-    
-    setDeletingId(id);
+  const handleDelete = async () => {
+    if (!productToDelete) {
+      return;
+    }
+
+    setDeletingId(productToDelete.id);
+
     try {
-      const res = await fetch(`/api/products/${id}`, {
+      const response = await fetch(`/api/products/${productToDelete.id}`, {
         method: "DELETE",
       });
 
-      if (res.ok) {
-        setProducts(products.filter((p) => p.id !== id));
-        toast.success("Product deleted successfully");
-        router.refresh();
-      } else {
+      if (!response.ok) {
         throw new Error("Failed to delete");
       }
+
+      setProducts((currentProducts) =>
+        currentProducts.filter((product) => product.id !== productToDelete.id)
+      );
+      setProductToDelete(null);
+      toast.success("Product deleted successfully");
+      router.refresh();
     } catch (error) {
       toast.error("An error occurred while deleting the product");
     } finally {
@@ -98,144 +149,213 @@ export default function ProductTable() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center p-12">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-      </div>
-    );
+    return <ProductTableSkeleton />;
   }
 
   if (products.length === 0) {
     return (
-      <div className="text-center p-12">
-        <p className="text-sm text-gray-500">No products found. Add some products to see them here.</p>
+      <div className="px-4 py-16 sm:px-6">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
+          <p className="text-base font-medium text-slate-900">
+            No products found. Add your first product.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-300">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
-              Product
-            </th>
-            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-              Price
-            </th>
-            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-              Priority
-            </th>
-            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-              Date Added
-            </th>
-            <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-              <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200 bg-white">
-          {products.map((product) => {
-            const productName = getProductName(product);
-            const imageSrc = brokenImages[product.id]
-              ? FALLBACK_IMAGE_URL
-              : getProductImage(product);
-            const useNextImage = canUseNextImage(imageSrc);
-            const priceLabel =
-              typeof product.price === "number" ? `$${product.price.toFixed(2)}` : "N/A";
-            const priorityLabel = product.priority || "Unspecified";
-            const priorityClasses =
-              priorityLabel === "High"
-                ? "bg-red-100 text-red-800"
-                : priorityLabel === "Medium"
-                  ? "bg-yellow-100 text-yellow-800"
-                  : priorityLabel === "Low"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-700";
-            const dateLabel = product.dateAdded
-              ? new Date(product.dateAdded).toLocaleDateString()
-              : "N/A";
+    <div className="relative">
+      <div className="overflow-x-auto">
+        <table className="min-w-[760px] w-full divide-y divide-slate-200">
+          <thead className="bg-slate-50/80">
+            <tr>
+              <th
+                scope="col"
+                className="py-4 pl-4 pr-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 sm:pl-6"
+              >
+                Product
+              </th>
+              <th
+                scope="col"
+                className="px-3 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500"
+              >
+                Price
+              </th>
+              <th
+                scope="col"
+                className="px-3 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500"
+              >
+                Priority
+              </th>
+              <th
+                scope="col"
+                className="px-3 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500"
+              >
+                Date Added
+              </th>
+              <th
+                scope="col"
+                className="py-4 pl-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 sm:pr-6"
+              >
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 bg-white">
+            {products.map((product) => {
+              const productName = getProductName(product);
+              const imageSrc = brokenImages[product.id]
+                ? FALLBACK_PRODUCT_IMAGE_URL
+                : getProductImage(product);
+              const priorityLabel = product.priority || "Medium";
+              const priceLabel = currencyFormatter.format(product.price || 0);
+              const dateLabel = product.dateAdded
+                ? dateFormatter.format(new Date(product.dateAdded))
+                : "N/A";
+              const priorityClasses =
+                PRIORITY_STYLES[priorityLabel] ||
+                "bg-slate-100 text-slate-700 ring-slate-200";
 
-            return (
-              <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                <td className="whitespace-nowrap py-4 pl-4 pr-3 sm:pl-6">
-                  <div className="flex items-center">
-                    <div className="h-10 w-10 flex-shrink-0 relative rounded-md overflow-hidden bg-gray-100">
-                      {useNextImage ? (
-                        <Image
-                          src={imageSrc}
-                          alt={productName}
-                          fill
-                          className="object-cover"
-                          referrerPolicy="no-referrer"
-                          sizes="40px"
-                          onError={() =>
-                            setBrokenImages((current) => ({
-                              ...current,
-                              [product.id]: true,
-                            }))
-                          }
-                        />
-                      ) : (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={imageSrc}
-                          alt={productName}
-                          className="h-full w-full object-cover"
-                          referrerPolicy="no-referrer"
-                          loading="lazy"
-                          onError={(event) => {
-                            event.currentTarget.src = FALLBACK_IMAGE_URL;
-                          }}
-                        />
-                      )}
-                    </div>
-                    <div className="ml-4">
-                      <div className="font-medium text-gray-900 truncate max-w-[200px] sm:max-w-xs">
-                        {productName}
+              return (
+                <tr
+                  key={product.id}
+                  className="transition-colors hover:bg-slate-50"
+                >
+                  <td className="py-4 pl-4 pr-3 align-middle sm:pl-6">
+                    <div className="flex items-center gap-4">
+                      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                        {canUseNextImage(imageSrc) ? (
+                          <Image
+                            src={imageSrc}
+                            alt={productName}
+                            fill
+                            className="object-cover"
+                            referrerPolicy="no-referrer"
+                            sizes="48px"
+                            onError={() =>
+                              setBrokenImages((current) => ({
+                                ...current,
+                                [product.id]: true,
+                              }))
+                            }
+                          />
+                        ) : (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={imageSrc}
+                            alt={productName}
+                            className="h-full w-full object-cover"
+                            referrerPolicy="no-referrer"
+                            loading="lazy"
+                            onError={(event) => {
+                              event.currentTarget.src = FALLBACK_PRODUCT_IMAGE_URL;
+                            }}
+                          />
+                        )}
                       </div>
-                      <div className="text-gray-500 text-sm truncate max-w-[200px] sm:max-w-xs">
-                        {product.shortDescription || "No description available"}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {productName}
+                        </p>
+                        <p className="max-w-[14rem] truncate text-sm text-slate-500 sm:max-w-[24rem]">
+                          {product.shortDescription || "No description available"}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                  {priceLabel}
-                </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                  <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${priorityClasses}`}>
-                    {priorityLabel}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                  {dateLabel}
-                </td>
-                <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                  <div className="flex items-center justify-end gap-3">
-                    <Link href={`/products/${product.id}`} className="text-indigo-600 hover:text-indigo-900 flex items-center">
-                      <Eye className="h-4 w-4 mr-1" /> View
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      disabled={deletingId === product.id}
-                      className="text-red-600 hover:text-red-900 flex items-center disabled:opacity-50"
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-600">
+                    {priceLabel}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-600">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${priorityClasses}`}
                     >
-                      {deletingId === product.id ? (
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 mr-1" />
-                      )}
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                      {priorityLabel}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-600">
+                    {dateLabel}
+                  </td>
+                  <td className="whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <div className="flex items-center justify-end gap-3">
+                      <Link
+                        href={`/products/${product.id}`}
+                        className="inline-flex items-center gap-1 text-indigo-600 transition-colors hover:text-indigo-800"
+                      >
+                        <Eye className="h-4 w-4" />
+                        View
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setProductToDelete(product)}
+                        disabled={deletingId === product.id}
+                        className="inline-flex items-center gap-1 text-rose-600 transition-colors hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {deletingId === product.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {productToDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-product-title"
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+          >
+            <h2
+              id="delete-product-title"
+              className="text-lg font-semibold text-slate-900"
+            >
+              Delete product?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-slate-900">
+                {getProductName(productToDelete)}
+              </span>
+              ? This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setProductToDelete(null)}
+                disabled={deletingId === productToDelete.id}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deletingId === productToDelete.id}
+                className="inline-flex items-center rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingId === productToDelete.id ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

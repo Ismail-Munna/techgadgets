@@ -13,9 +13,9 @@ export function TestimonialsSection({
     <section className="bg-gray-50 py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          eyebrow="Reviews"
-          title="What customers say"
-          description="Feedback from shoppers who use TechGadgets to build reliable setups at home and work."
+          eyebrow="Testimonials"
+          title="Trusted by customers building smarter setups"
+          description="Shoppers choose TechGadgets for curated recommendations, dependable products, and a smoother buying experience from start to finish."
           align="center"
         />
 
@@ -23,14 +23,14 @@ export function TestimonialsSection({
           {testimonials.map((testimonial) => (
             <article
               key={testimonial.name}
-              className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm"
+              className="flex h-full flex-col rounded-3xl border border-gray-200 bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
             >
               <div className="mb-4 flex text-amber-400">
                 {Array.from({ length: 5 }).map((_, index) => (
                   <Star key={index} className="h-5 w-5 fill-current" />
                 ))}
               </div>
-              <p className="text-base leading-7 text-gray-700">
+              <p className="flex-1 text-base leading-7 text-gray-700">
                 &quot;{testimonial.text}&quot;
               </p>
               <div className="mt-8 flex items-center gap-3">

@@ -1,12 +1,10 @@
 'use client';
 
 import GoogleAuthSection from "@/components/auth/GoogleAuthSection";
-import { auth } from "@/lib/firebase";
-import { FirebaseError } from "firebase/app";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -20,25 +18,21 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+function getSafeCallbackUrl(value: string | null) {
+  if (value && value.startsWith("/") && !value.startsWith("//")) {
+    return value;
+  }
+
+  return "/manage-products";
+}
+
 function getLoginErrorMessage(error: unknown) {
-  if (error instanceof FirebaseError) {
-    switch (error.code) {
-      case "auth/invalid-credential":
-      case "auth/invalid-login-credentials":
-      case "auth/user-not-found":
-      case "auth/wrong-password":
-        return "Invalid email or password.";
-      case "auth/invalid-email":
-        return "Please enter a valid email address.";
-      case "auth/user-disabled":
-        return "This account has been disabled.";
-      case "auth/too-many-requests":
-        return "Too many failed attempts. Please try again later.";
-      case "auth/network-request-failed":
-        return "Network error. Check your connection and try again.";
-      default:
-        return "Unable to sign in right now. Please try again.";
-    }
+  if (error === "CredentialsSignin") {
+    return "Invalid email or password.";
+  }
+
+  if (typeof error === "string" && error.length > 0) {
+    return "Unable to sign in right now. Please try again.";
   }
 
   return "Unable to sign in right now. Please try again.";
@@ -46,8 +40,10 @@ function getLoginErrorMessage(error: unknown) {
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
 
   const {
     register,
@@ -64,15 +60,25 @@ export default function LoginForm() {
 
     try {
       const email = data.email.trim().toLowerCase();
+      const result = await signIn("credentials", {
+        redirect: false,
+        email,
+        password: data.password,
+        callbackUrl,
+      });
 
-      await signInWithEmailAndPassword(auth, email, data.password);
+      if (!result || result.error) {
+        throw new Error(result?.error || "SignInFailed");
+      }
 
       reset();
       toast.success("Logged in successfully.");
-      router.push("/");
+      router.push(result.url || callbackUrl);
       router.refresh();
     } catch (error) {
-      const message = getLoginErrorMessage(error);
+      const message = getLoginErrorMessage(
+        error instanceof Error ? error.message : error
+      );
       setSubmitError(message);
       toast.error(message);
     } finally {
@@ -82,7 +88,7 @@ export default function LoginForm() {
 
   return (
     <div className="mt-8 space-y-6">
-      <GoogleAuthSection />
+      <GoogleAuthSection callbackUrl={callbackUrl} />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
@@ -109,7 +115,7 @@ export default function LoginForm() {
               type="password"
               autoComplete="current-password"
               className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-              placeholder="••••••••"
+              placeholder="********"
             />
             {errors.password && (
               <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>

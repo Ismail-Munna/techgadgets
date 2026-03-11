@@ -5,14 +5,18 @@ import { signIn } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function GoogleAuthSection() {
+export default function GoogleAuthSection({
+  callbackUrl = "/manage-products",
+}: {
+  callbackUrl?: string;
+}) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
 
     try {
-      await signIn("google", { callbackUrl: "/" });
+      await signIn("google", { callbackUrl });
     } catch {
       toast.error("Failed to continue with Google");
       setIsLoading(false);

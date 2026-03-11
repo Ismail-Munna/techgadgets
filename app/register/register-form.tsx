@@ -8,6 +8,7 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -26,6 +27,10 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 function getRegistrationErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message === "AUTO_SIGN_IN_FAILED") {
+    return "Account created, but automatic sign-in failed. Please sign in manually.";
+  }
+
   if (error instanceof FirebaseError) {
     switch (error.code) {
       case "auth/email-already-in-use":
@@ -94,9 +99,20 @@ export default function RegisterForm() {
         { merge: true }
       );
 
+      const signInResult = await signIn("credentials", {
+        redirect: false,
+        email,
+        password: data.password,
+        callbackUrl: "/manage-products",
+      });
+
+      if (!signInResult || signInResult.error) {
+        throw new Error("AUTO_SIGN_IN_FAILED");
+      }
+
       reset();
       toast.success("Account created successfully.");
-      router.push("/");
+      router.push(signInResult.url || "/manage-products");
       router.refresh();
     } catch (error) {
       const message = getRegistrationErrorMessage(error);
@@ -109,7 +125,7 @@ export default function RegisterForm() {
 
   return (
     <div className="mt-8 space-y-6">
-      <GoogleAuthSection />
+      <GoogleAuthSection callbackUrl="/manage-products" />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div>

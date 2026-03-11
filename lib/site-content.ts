@@ -109,18 +109,18 @@ export const categories: Category[] = [
 
 export const companyHighlights: CompanyHighlight[] = [
   {
-    title: "Curated catalog",
-    description: "We focus on fewer products with clearer reasons to buy each one.",
+    title: "Curated Products",
+    description: "Every product earns its place through useful features, dependable performance, and a clear fit for daily life.",
     icon: Sparkles,
   },
   {
-    title: "Practical guidance",
-    description: "Every collection is organized around real routines, not just specs and hype.",
-    icon: Lightbulb,
+    title: "Trusted Quality",
+    description: "We prioritize reliable electronics and accessories that balance design, durability, and long-term value.",
+    icon: ShieldCheck,
   },
   {
-    title: "Human support",
-    description: "Support and merchandising work closely so shoppers get consistent recommendations.",
+    title: "Customer First Support",
+    description: "Shopping stays straightforward with clearer product guidance and responsive help before and after checkout.",
     icon: Users,
   },
 ];

@@ -7,6 +7,7 @@ export interface Product {
   priority: string;
   imageUrl: string;
   dateAdded: string;
+  category?: string;
 }
 
 // In-memory mock database
@@ -20,6 +21,7 @@ export let products: Product[] = [
     priority: "High",
     imageUrl: "https://picsum.photos/seed/headphones/600/400",
     dateAdded: new Date().toISOString(),
+    category: "Audio",
   },
   {
     id: "2",
@@ -30,6 +32,7 @@ export let products: Product[] = [
     priority: "Medium",
     imageUrl: "https://picsum.photos/seed/watch/600/400",
     dateAdded: new Date().toISOString(),
+    category: "Wearables",
   },
   {
     id: "3",
@@ -40,6 +43,7 @@ export let products: Product[] = [
     priority: "High",
     imageUrl: "https://picsum.photos/seed/laptop/600/400",
     dateAdded: new Date().toISOString(),
+    category: "Computers",
   },
   {
     id: "4",
@@ -50,6 +54,7 @@ export let products: Product[] = [
     priority: "Low",
     imageUrl: "https://picsum.photos/seed/chair/600/400",
     dateAdded: new Date().toISOString(),
+    category: "Workspace",
   },
   {
     id: "5",
@@ -60,6 +65,7 @@ export let products: Product[] = [
     priority: "Medium",
     imageUrl: "https://picsum.photos/seed/camera/600/400",
     dateAdded: new Date().toISOString(),
+    category: "Cameras",
   },
   {
     id: "6",
@@ -70,6 +76,7 @@ export let products: Product[] = [
     priority: "Low",
     imageUrl: "https://picsum.photos/seed/smarthome/600/400",
     dateAdded: new Date().toISOString(),
+    category: "Smart Home",
   }
 ];
 

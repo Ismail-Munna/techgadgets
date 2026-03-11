@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
-import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import {
+  createProductInStore,
+  listProductsFromStore,
+} from "@/lib/product-store";
 
 export async function GET() {
   try {
-    const querySnapshot = await getDocs(collection(db, "products"));
+    const session = await getServerSession(authOptions);
 
-    const products = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
+    const products = await listProductsFromStore();
     return NextResponse.json(products);
   } catch (error) {
     console.error("GET products error:", error);
@@ -23,23 +27,17 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
-
-    const productData = {
-      ...body,
-      imageUrl:
-        body.imageUrl ||
-        `https://picsum.photos/seed/${Math.random()}/600/400`,
-      createdAt: serverTimestamp(),
-    };
-
-    const docRef = await addDoc(collection(db, "products"), productData);
+    const product = await createProductInStore(body);
 
     return NextResponse.json(
-      {
-        id: docRef.id,
-        ...productData,
-      },
+      product,
       { status: 201 }
     );
   } catch (error) {

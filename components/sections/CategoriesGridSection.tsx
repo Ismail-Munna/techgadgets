@@ -10,12 +10,12 @@ export function CategoriesGridSection({
   categories,
 }: CategoriesGridSectionProps) {
   return (
-    <section className="py-16 sm:py-20">
+    <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="Categories"
-          title="Shop by category"
-          description="Browse the catalog by how you use technology, from focused audio setups to smart home essentials."
+          title="Explore categories built around real use"
+          description="Shop curated collections for audio, wearables, workstations, smart home upgrades, and other dependable everyday tech."
         />
 
         <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -25,9 +25,9 @@ export function CategoriesGridSection({
             return (
               <article
                 key={category.name}
-                className="flex h-full flex-col rounded-3xl border border-gray-200 bg-white p-8 shadow-sm transition-transform duration-200 hover:-translate-y-1"
+                className="group flex h-full flex-col rounded-3xl border border-gray-200 bg-white p-8 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-indigo-100 hover:shadow-lg"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-100">
                   <Icon className="h-6 w-6" />
                 </div>
                 <div className="mt-6 flex-1">

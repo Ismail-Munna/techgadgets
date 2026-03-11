@@ -58,7 +58,7 @@ export default function AddProductForm() {
 
       toast.success("Product added successfully!");
       reset();
-      router.push("/admin/manage-products");
+      router.push("/manage-products");
       router.refresh();
     } catch (error) {
       toast.error("An error occurred while adding the product");

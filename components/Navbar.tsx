@@ -99,14 +99,14 @@ export default function Navbar() {
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
                       <Link
-                        href="/admin/add-product"
+                        href="/add-product"
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         onClick={() => setDropdownOpen(false)}
                       >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Product
                       </Link>
                       <Link
-                        href="/admin/manage-products"
+                        href="/manage-products"
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         onClick={() => setDropdownOpen(false)}
                       >
@@ -126,9 +126,15 @@ export default function Navbar() {
                 <div className="flex items-center gap-4">
                   <Link
                     href="/login"
+                    className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-indigo-200 hover:text-indigo-600"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/register"
                     className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
                   >
-                    Sign In
+                    Register
                   </Link>
                 </div>
               )}
@@ -191,14 +197,14 @@ export default function Navbar() {
                 </div>
                 <div className="mt-3 space-y-1 px-2">
                   <Link
-                    href="/admin/add-product"
+                    href="/add-product"
                     className="flex items-center rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600"
                     onClick={() => setIsOpen(false)}
                   >
                     <PlusCircle className="mr-3 h-5 w-5 text-gray-400" /> Add Product
                   </Link>
                   <Link
-                    href="/admin/manage-products"
+                    href="/manage-products"
                     className="flex items-center rounded-md px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600"
                     onClick={() => setIsOpen(false)}
                   >
@@ -217,10 +223,17 @@ export default function Navbar() {
               <div className="mt-3 space-y-1 px-2">
                 <Link
                   href="/login"
+                  className="block rounded-md border border-gray-200 px-3 py-2 text-base font-medium text-gray-700 hover:border-indigo-200 hover:text-indigo-600"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register"
                   className="block rounded-md bg-indigo-600 px-3 py-2 text-base font-medium text-white hover:bg-indigo-700"
                   onClick={() => setIsOpen(false)}
                 >
-                  Sign In
+                  Register
                 </Link>
               </div>
             )}
