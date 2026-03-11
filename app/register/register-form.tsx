@@ -1,13 +1,13 @@
 'use client';
 
 import GoogleAuthSection from "@/components/auth/GoogleAuthSection";
-import app from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { FirebaseError } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
-  getAuth,
   updateProfile,
 } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -18,14 +18,12 @@ import { toast } from "sonner";
 import * as z from "zod";
 
 const registerSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  email: z.string().email({ message: "Invalid email address" }),
+  name: z.string().trim().min(2, { message: "Name must be at least 2 characters" }),
+  email: z.string().trim().email({ message: "Invalid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
-
-const auth = getAuth(app);
 
 function getRegistrationErrorMessage(error: unknown) {
   if (error instanceof FirebaseError) {
@@ -38,8 +36,14 @@ function getRegistrationErrorMessage(error: unknown) {
         return "Email/password registration is not enabled in Firebase.";
       case "auth/weak-password":
         return "Password must be at least 6 characters.";
+      case "auth/too-many-requests":
+        return "Too many attempts. Please wait a bit and try again.";
       case "auth/network-request-failed":
         return "Network error. Check your connection and try again.";
+      case "permission-denied":
+        return "Your account was created, but we could not save your profile. Check Firestore rules.";
+      case "unavailable":
+        return "Firebase is temporarily unavailable. Please try again.";
       default:
         return "Registration failed. Please try again.";
     }
@@ -67,15 +71,32 @@ export default function RegisterForm() {
     setSubmitError(null);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const name = data.name.trim();
+      const email = data.email.trim().toLowerCase();
+
+      const userCredential = await createUserWithEmailAndPassword(auth, email, data.password);
 
       await updateProfile(userCredential.user, {
-        displayName: data.name,
+        displayName: name,
       });
 
+      await setDoc(
+        doc(db, "users", userCredential.user.uid),
+        {
+          uid: userCredential.user.uid,
+          name,
+          email,
+          photoURL: userCredential.user.photoURL,
+          provider: "password",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
       reset();
-      toast.success("Account created successfully. Redirecting to sign in...");
-      router.push("/login");
+      toast.success("Account created successfully.");
+      router.push("/");
       router.refresh();
     } catch (error) {
       const message = getRegistrationErrorMessage(error);
@@ -157,7 +178,7 @@ export default function RegisterForm() {
             className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Register
+            {isSubmitting ? "Creating account..." : "Register"}
           </button>
         </div>
       </form>

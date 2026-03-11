@@ -1,38 +1,17 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { getProviders, signIn } from "next-auth/react";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function GoogleAuthSection() {
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleConfigured, setIsGoogleConfigured] = useState<boolean | null>(null);
-  const isCheckingProviders = isGoogleConfigured === null;
-
-  useEffect(() => {
-    const loadProviders = async () => {
-      try {
-        const providers = await getProviders();
-        setIsGoogleConfigured(Boolean(providers?.google));
-      } catch {
-        setIsGoogleConfigured(false);
-      }
-    };
-
-    void loadProviders();
-  }, []);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
 
     try {
-      if (isGoogleConfigured === false) {
-        toast.error("Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.local and restart the dev server.");
-        setIsLoading(false);
-        return;
-      }
-
       await signIn("google", { callbackUrl: "/" });
     } catch {
       toast.error("Failed to continue with Google");
@@ -45,7 +24,7 @@ export default function GoogleAuthSection() {
       <button
         type="button"
         onClick={handleGoogleSignIn}
-        disabled={isLoading || isCheckingProviders}
+        disabled={isLoading}
         className="flex w-full items-center justify-center gap-3 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isLoading ? (

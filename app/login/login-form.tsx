@@ -1,9 +1,9 @@
 'use client';
 
 import GoogleAuthSection from "@/components/auth/GoogleAuthSection";
-import app from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { FirebaseError } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,13 +14,11 @@ import { toast } from "sonner";
 import * as z from "zod";
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
+  email: z.string().trim().email({ message: "Invalid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
-
-const auth = getAuth(app);
 
 function getLoginErrorMessage(error: unknown) {
   if (error instanceof FirebaseError) {
@@ -65,10 +63,12 @@ export default function LoginForm() {
     setSubmitError(null);
 
     try {
-      await signInWithEmailAndPassword(auth, data.email, data.password);
+      const email = data.email.trim().toLowerCase();
+
+      await signInWithEmailAndPassword(auth, email, data.password);
 
       reset();
-      toast.success("Logged in successfully");
+      toast.success("Logged in successfully.");
       router.push("/");
       router.refresh();
     } catch (error) {
