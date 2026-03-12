@@ -173,7 +173,10 @@ export async function createProductInStore(input: CreateProductInput) {
 
   const documentRef = await addDoc(collection(db, "products"), productData);
 
-  return normalizeProduct(documentRef.id, productData);
+  return normalizeProduct(documentRef.id, {
+    ...productData,
+    createdAt: new Date().toISOString(),
+  });
 }
 
 export async function deleteProductFromStore(id: string) {

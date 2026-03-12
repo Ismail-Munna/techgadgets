@@ -4,7 +4,7 @@ import GoogleAuthSection from "@/components/auth/GoogleAuthSection";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -18,14 +18,6 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-function getSafeCallbackUrl(value: string | null) {
-  if (value && value.startsWith("/") && !value.startsWith("//")) {
-    return value;
-  }
-
-  return "/manage-products";
-}
-
 function getLoginErrorMessage(error: unknown) {
   if (error === "CredentialsSignin") {
     return "Invalid email or password.";
@@ -38,12 +30,10 @@ function getLoginErrorMessage(error: unknown) {
   return "Unable to sign in right now. Please try again.";
 }
 
-export default function LoginForm() {
+export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
 
   const {
     register,
